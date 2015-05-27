@@ -1,0 +1,75 @@
+{
+    "appKeys": {
+        "KEY_CONDITIONS_0": 6,
+        "KEY_FORECAST_1": 3,
+        "KEY_FORECAST_2": 4,
+        "KEY_FORECAST_3": 5,
+        "KEY_MOON": 7,
+        "KEY_SUN": 2,
+        "KEY_TEMPERATURE": 1
+    },
+    "capabilities": [
+        "location",
+        "configurable"
+    ],
+    "companyName": "Linkbeat Technologies",
+    "longName": "Countdown & Weather",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/background.png",
+                "name": "IMAGE_BACKGROUND",
+                "type": "png"
+            },
+            {
+                "file": "fonts/DejaVuSans.ttf",
+                "name": "FONT_DEJAVU_SANS_12",
+                "type": "font"
+            },
+            {
+                "file": "fonts/DejaVuSans.ttf",
+                "name": "FONT_DEJAVU_SANS_9",
+                "type": "font"
+            },
+            {
+                "file": "fonts/perfect-dos-vga.ttf",
+                "name": "FONT_PERFECT_DOS_6",
+                "type": "font"
+            },
+            {
+                "file": "fonts/perfect-dos-vga.ttf",
+                "name": "FONT_PERFECT_DOS_9",
+                "type": "font"
+            },
+            {
+                "compatibility": "2.7",
+                "file": "fonts/perfect-dos-vga.ttf",
+                "name": "FONT_PERFECT_DOS_20",
+                "type": "font"
+            },
+            {
+                "compatibility": "2.7",
+                "file": "fonts/perfect-dos-vga.ttf",
+                "name": "FONT_PERFECT_DOS_48",
+                "type": "font"
+            },
+            {
+                "file": "fonts/perfect-dos-vga.ttf",
+                "name": "FONT_PERFECT_DOS_12",
+                "type": "font"
+            }
+        ]
+    },
+    "sdkVersion": "3",
+    "shortName": "Countdown & Weather",
+    "targetPlatforms": [
+        "aplite",
+        "basalt"
+    ],
+    "uuid": "626138d8-0bd7-4459-964a-f5c3c0f40756",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": true
+    }
+}
