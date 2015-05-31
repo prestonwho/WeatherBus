@@ -18,18 +18,23 @@
     "resources": {
         "media": [
             {
-                "file": "images/background.png",
-                "name": "IMAGE_BACKGROUND",
-                "type": "png"
+                "file": "fonts/DejaVuSansCondensed-Bold.ttf",
+                "name": "FONT_DEJAVU_SANS_COND_47",
+                "type": "font"
             },
             {
                 "file": "fonts/DejaVuSans.ttf",
-                "name": "FONT_DEJAVU_SANS_12",
+                "name": "FONT_DEJAVU_SANS_49",
                 "type": "font"
             },
             {
                 "file": "fonts/DejaVuSans.ttf",
                 "name": "FONT_DEJAVU_SANS_9",
+                "type": "font"
+            },
+            {
+                "file": "fonts/DejaVuSans.ttf",
+                "name": "FONT_DEJAVU_SANS_12",
                 "type": "font"
             },
             {
@@ -62,9 +67,8 @@
         ]
     },
     "sdkVersion": "3",
-    "shortName": "Countdown & Weather",
+    "shortName": "C & W",
     "targetPlatforms": [
-        "aplite",
         "basalt"
     ],
     "uuid": "626138d8-0bd7-4459-964a-f5c3c0f40756",
