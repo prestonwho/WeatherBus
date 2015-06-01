@@ -60,10 +60,10 @@ function locationSuccess(pos) {
                        //"KEY_F0DAY":       json.forecast.simpleforecast.forecastday[0].date.weekday.substring(0,2),
                        
                        "KEY_CONDITIONS_0":    json.forecast.simpleforecast.forecastday[0].high.fahrenheit + "°/" +
-                                              json.forecast.simpleforecast.forecastday[0].low.fahrenheit + "° (" +
-                                              Math.round(parseFloat(json.current_observation.feelslike_f)) + "°)\n" +
-                                              json.forecast.simpleforecast.forecastday[0].conditions + " (" +
-                                              json.forecast.simpleforecast.forecastday[0].pop + "%)",
+                                              json.forecast.simpleforecast.forecastday[0].low.fahrenheit + "° " +
+                                              "(" + json.forecast.simpleforecast.forecastday[0].pop + "% pop)\n" +
+                                              "(feel " + Math.round(parseFloat(json.current_observation.feelslike_f)) + "°) " + json.current_observation.weather,
+                                            
                        
                        "KEY_FORECAST_1":  json.forecast.simpleforecast.forecastday[1].date.weekday.substring(0,2) + " " +
                                               json.forecast.simpleforecast.forecastday[1].pop + "%\n" +

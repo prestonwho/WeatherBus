@@ -8,6 +8,7 @@
 #define KEY_FORECAST_3 5
 #define KEY_CONDITIONS_0 6
 #define KEY_MOON 7
+#define KEY_WEATHER_TS 8
 
 
 static Window *s_main_window;
@@ -16,13 +17,13 @@ static TextLayer *s_tz1_layer;
 static TextLayer *s_tz2_layer;
 //static TextLayer *s_date_layer;
 //static TextLayer *s_temp_layer;
-static TextLayer *s_weather_layer;
-static TextLayer *s_weathershadow_layer;
-static TextLayer *s_forecast1_layer;
-static TextLayer *s_forecast2_layer;
-static TextLayer *s_forecast3_layer;
-static TextLayer *s_sun_layer;
-static TextLayer *s_moon_layer;
+//static TextLayer *s_weather_layer;
+//static TextLayer *s_weathershadow_layer;
+//static TextLayer *s_forecast1_layer;
+//static TextLayer *s_forecast2_layer;
+//static TextLayer *s_forecast3_layer;
+//static TextLayer *s_sun_layer;
+//static TextLayer *s_moon_layer;
 //static TextLayer *s_nextbus_layer;
 //static TextLayer *s_bus0123_layer;
 //static TextLayer *s_battery_layer;
@@ -79,7 +80,7 @@ static int mins[] = { 304,
 //static Layer *s_graph_layer;
 
 static GFont s_time_font;
-static GFont s_weather_font;
+static GFont s_tiny_font;
 
 //static BitmapLayer *s_background_layer;
 //static GBitmap *s_background_bitmap;
@@ -104,9 +105,15 @@ static char forecast2_layer_buffer[128];
 static char forecast3_layer_buffer[128];
 static char sun_buffer[32];
 static char moon_buffer[32];
+static int  weather_ts;
+static char weather_age[] = "Forecast age 99999 min";
 
 
 
+
+
+
+    
 //static char tempTime[] = "00:00";
 
 //static char bus456[] = "99999\n99999\n99999";
@@ -117,13 +124,9 @@ static int etas[MINSCOUNT] = { 0 };
 static void update_time() {
 
     
-    
-    //int etaIndex = 0;
-    //int tempEta = 0;
-    
     // temp variables
     int i, j, k, a;
-    //int nbHours, nbMinutes;
+
     
     // Get a tm structure
     time_t temp = time(NULL); 
@@ -159,15 +162,15 @@ static void update_time() {
     // use the original mins[] array, now that I've sorted the etas. Maybe don't sort them, but find the 1st
     // non-negative and start the counter from there and %MINSCOUNT each time it increments?
     
-    //if(etas[0] <= 99) {
+    if(etas[0] <= 99) {
         //text_layer_set_font(s_nextbus_layer, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));
         snprintf(nextbus, sizeof(nextbus), "%d", etas[0]);
-    //} else {
+    } else {
         //text_layer_set_font(s_nextbus_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
-    //    nbHours = etas[0] / 60;               // integer math; should be rounded down.
-    //    nbMinutes = etas[0] - (nbHours * 60); // remove the whole hours leaving just the minutes
-    //    snprintf(nextbus, sizeof(nextbus), "%d:%02d", nbHours, nbMinutes);
-    //}
+        //nbHours = etas[0] / 60;               // integer math; should be rounded down.
+        //nbMinutes = etas[0] - (nbHours * 60); // remove the whole hours leaving just the minutes
+        snprintf(nextbus, sizeof(nextbus), "%dh", etas[0] / 60);
+    }
     
     snprintf(bus0123, sizeof(bus0123), "%02d:%02d (%d)\n%02d:%02d (%d)\n%02d:%02d (%d)", //\n%02d:%02d (%d)", 
              ((etas[0] + minOfDay - ((etas[0] + minOfDay) % 60)) / 60) % 24, ((etas[0] + minOfDay) % 60), etas[0], 
@@ -175,8 +178,6 @@ static void update_time() {
              ((etas[2] + minOfDay - ((etas[2] + minOfDay) % 60)) / 60) % 24, ((etas[2] + minOfDay) % 60), etas[2]); //,
              //((etas[3] + minOfDay - ((etas[3] + minOfDay) % 60)) / 60) % 24, ((etas[3] + minOfDay) % 60), etas[3]);
     
-    //snprintf(bus456, sizeof(bus456), "%d\n%d\n%d\n%d", etas[4], etas[5], etas[6]);
-
 
     // Write the current hours and minutes into the buffer
     if(clock_is_24h_style() == true) {
@@ -187,36 +188,26 @@ static void update_time() {
         strftime(buffer, sizeof("00 00"), "%I %M", tick_time);
     }
     
-    strftime(datebuffer, sizeof("Sat 2015-05-23"), "%a %F", tick_time);
-    snprintf(tz1buffer, sizeof(tz1buffer), "%02d", (gmt_time->tm_hour));
-    snprintf(tz2buffer, sizeof(tz2buffer), "%02d", (tick_time->tm_hour + 3) % 24);
     
-    //s_tz1_layer
+    strftime(datebuffer,  sizeof("Sat 2015-05-23"), "%a %F", tick_time);
+    snprintf(tz1buffer,   sizeof(tz1buffer),        "%02d",  (gmt_time->tm_hour));
+    snprintf(tz2buffer,   sizeof(tz2buffer),        "%02d",  (tick_time->tm_hour + 3) % 24);
+    //snprintf(weather_age, sizeof(weather_age),      "%ld",   (time(NULL) - weather_ts) / 60);
     
     
     // Display this time on the TextLayer
     text_layer_set_text(s_time_layer, buffer);
     text_layer_set_text(s_tz1_layer, tz1buffer);
     text_layer_set_text(s_tz2_layer, tz2buffer);
-    
-    //text_layer_set_text(s_date_layer, datebuffer);
-    
-    
-    //text_layer_set_text(s_nextbus_layer, nextbus);
-    
-    //text_layer_set_text(s_bus0123_layer, bus0123);
-    //text_layer_set_text(s_bus456_layer, bus456);
 
+    
+    //layer_mark_dirty(s_path_layer);
 
-
+    
 }
 
 
-
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
-
-
-
 
     // Read first item
     Tuple *t = dict_read_first(iterator);
@@ -262,22 +253,22 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         t = dict_read_next(iterator);
     }
 
-    // Assemble full strings and display
-    //text_layer_set_text(s_temp_layer, temperature_buffer);
-
     
+    weather_ts = time(NULL);
+
+    // save weather info for future use... so I can have weather when face loads, before http response.
+    persist_write_string(KEY_TEMPERATURE, temperature_buffer);
+    persist_write_string(KEY_FORECAST_1, forecast1_layer_buffer);
+    persist_write_string(KEY_FORECAST_2, forecast2_layer_buffer);
+    persist_write_string(KEY_FORECAST_3, forecast3_layer_buffer);
+    persist_write_string(KEY_SUN, sun_buffer);
+    persist_write_string(KEY_MOON, moon_buffer);
+    persist_write_string(KEY_CONDITIONS_0, weather_layer_buffer);
+    persist_write_int(KEY_WEATHER_TS,weather_ts);
+    
+    
+    // hey... we gots some new data. Wanna show it?
     layer_mark_dirty(s_path_layer);
-
-    
-    text_layer_set_text(s_weather_layer, weather_layer_buffer);
-    text_layer_set_text(s_weathershadow_layer, weather_layer_buffer);
-
-    text_layer_set_text(s_forecast1_layer, forecast1_layer_buffer);
-    text_layer_set_text(s_forecast2_layer, forecast2_layer_buffer);
-    text_layer_set_text(s_forecast3_layer, forecast3_layer_buffer);
-
-    text_layer_set_text(s_sun_layer, sun_buffer);
-    text_layer_set_text(s_moon_layer, moon_buffer);
 
 }
 
@@ -311,7 +302,7 @@ static void handle_battery(BatteryChargeState charge_state) {
 
 
 static void handle_bluetooth(bool connected) {
-    //text_layer_set_text(s_connection_layer, 
+    
     snprintf(bluetooth_buffer, sizeof(bluetooth_buffer), (connected ? "*" : ""));
     
     layer_mark_dirty(s_path_layer);
@@ -346,12 +337,6 @@ static void draw_text_shadowed(GContext * ctx, const char * text, GFont const fo
         GColor fuzzColor, GColor textColor) {
     
     graphics_context_set_text_color(ctx, fuzzColor);
-    
-    //if(fuzzW)  graphics_draw_text(ctx, text, font, GRect(x-fuzzW,y,w,h), overflow_mode, alignment, layout);
-    //if(fuzzE)  graphics_draw_text(ctx, text, font, GRect(x+fuzzE,y,w,h), overflow_mode, alignment, layout);
-    //if(fuzzN)  graphics_draw_text(ctx, text, font, GRect(x,y-fuzzN,w,h), overflow_mode, alignment, layout);
-    //if(fuzzS)  graphics_draw_text(ctx, text, font, GRect(x,y+fuzzS,w,h), overflow_mode, alignment, layout);
-    
     if(fuzzNW) graphics_draw_text(ctx, text, font, GRect(x-fuzzNW,y-fuzzNW,w,h), overflow_mode, alignment, layout);
     if(fuzzNE) graphics_draw_text(ctx, text, font, GRect(x+fuzzNE,y-fuzzNE,w,h), overflow_mode, alignment, layout);
     if(fuzzSE) graphics_draw_text(ctx, text, font, GRect(x+fuzzSE,y+fuzzSE,w,h), overflow_mode, alignment, layout);
@@ -376,14 +361,14 @@ static void layer_update_proc(Layer *layer, GContext *ctx) {
     
     // Watch Battery
     draw_text_shadowed(ctx, battery_text, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
-                       5,-5,139,15,
+                       3,-5,139,15,
                        GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL,
                        0,1,0,0,
                        GColorBlack, GColorWhite);
     
     // Bluetooth Connection
     draw_text_shadowed(ctx, bluetooth_buffer, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
-                       0,-5,139,17,
+                       0,-5,141,17,
                        GTextOverflowModeWordWrap, GTextAlignmentRight, NULL,
                        0,1,0,0,
                        GColorBlack, GColorWhite);
@@ -399,7 +384,7 @@ static void layer_update_proc(Layer *layer, GContext *ctx) {
     
     
     // Three buses following the next one
-    draw_text_shadowed(ctx, bus0123, s_weather_font,
+    draw_text_shadowed(ctx, bus0123, s_tiny_font,
                        1,11,68,47,
                        GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL,
                        0,1,0,0,
@@ -450,9 +435,27 @@ static void layer_update_proc(Layer *layer, GContext *ctx) {
                        1,1,1,1,
                        GColorBlack, GColorWhite);
     
-    // "erase" the bottom portion of the next bus time.
+    // "erase" the bottom portion of the current temp.
     graphics_context_set_fill_color(ctx, GColorOxfordBlue);
     graphics_fill_rect(ctx, GRect(0, 126, 144, 10), 0, GCornerNone);
+    
+        
+    // current conditions
+    draw_text_shadowed(ctx, weather_layer_buffer, s_tiny_font,
+                       0,95,144,30,
+                       GTextOverflowModeWordWrap, GTextAlignmentRight, NULL,
+                       1,1,1,1,
+                       GColorBlack, GColorWhite);
+    
+    
+    // small text for age of weather
+    snprintf(weather_age, sizeof(weather_age),      "(age %ld min)",   (time(NULL) - weather_ts) / 60);
+    draw_text_shadowed(ctx, weather_age, s_tiny_font,
+                       0,113,144,15,
+                       GTextOverflowModeWordWrap, GTextAlignmentRight, NULL,
+                       1,1,1,1,
+                       GColorBlack, GColorWhite);
+    
     
     
     graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
@@ -463,6 +466,25 @@ static void layer_update_proc(Layer *layer, GContext *ctx) {
     
     
     // WEATHER FORECAST ROW
+    
+
+    
+
+    draw_text_shadowed(ctx, forecast1_layer_buffer, s_tiny_font,
+                       -10,125,68,47,
+                       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
+                       0,1,0,0,
+                       GColorBlack, GColorWhite);
+    draw_text_shadowed(ctx, forecast2_layer_buffer, s_tiny_font,
+                       38,125,68,47,
+                       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
+                       0,1,0,0,
+                       GColorBlack, GColorWhite);
+    draw_text_shadowed(ctx, forecast3_layer_buffer, s_tiny_font,
+                       86,125,68,47,
+                       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
+                       0,1,0,0,
+                       GColorBlack, GColorWhite);
     
     
     graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
@@ -475,7 +497,19 @@ static void layer_update_proc(Layer *layer, GContext *ctx) {
     // SUN/MOON ROW
     
     
+    draw_text_shadowed(ctx, sun_buffer, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       3,152,141,17,
+                       GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL,
+                       0,1,0,0,
+                       GColorBlack, GColorWhite);
+    
+    draw_text_shadowed(ctx, moon_buffer, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       0,152,141,17,
+                       GTextOverflowModeWordWrap, GTextAlignmentRight, NULL,
+                       0,1,0,0,
+                       GColorBlack, GColorWhite);
 }
+
 
 static void main_window_load(Window *window) {
 
@@ -483,22 +517,11 @@ static void main_window_load(Window *window) {
     GRect bounds = layer_get_bounds(window_layer);
     
     // Create second custom font, apply it and add to Window
-    s_weather_font = //fonts_get_system_font(FONT_KEY_GOTHIC_14);
+    s_tiny_font = //fonts_get_system_font(FONT_KEY_GOTHIC_14);
         fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DEJAVU_SANS_9));
     
-    //Create GBitmap, then set to created BitmapLayer
-    //s_background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BACKGROUND);
-    //s_background_layer = bitmap_layer_create(GRect(0, 0, 144, 168));
-    //bitmap_layer_set_bitmap(s_background_layer, s_background_bitmap);
-    //layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(s_background_layer));
+   
     
-    
-    //s_graph_layer = layer_create(GRect(5, 5, 139, 45));
-    //layer_set_background_color(s_graph_layer, GColorYellow);
-
-    
-    //s_rect1_layer = text_layer_create(GRect(0,0,144,9));
-    //text_layer_set_background_color(s_rect1_layer, GColor)
     
     // Create GPath object
     s_path = gpath_create(&PATH_INFO);
@@ -511,11 +534,26 @@ static void main_window_load(Window *window) {
     
     
     
+    if(persist_exists(KEY_TEMPERATURE))  persist_read_string(KEY_TEMPERATURE,  temperature_buffer,     sizeof(temperature_buffer));
+    if(persist_exists(KEY_SUN))          persist_read_string(KEY_SUN,          sun_buffer,             sizeof(sun_buffer));
+    if(persist_exists(KEY_FORECAST_1))   persist_read_string(KEY_FORECAST_1,   forecast1_layer_buffer, sizeof(forecast1_layer_buffer));
+    if(persist_exists(KEY_FORECAST_2))   persist_read_string(KEY_FORECAST_2,   forecast2_layer_buffer, sizeof(forecast2_layer_buffer));
+    if(persist_exists(KEY_FORECAST_3))   persist_read_string(KEY_FORECAST_3,   forecast3_layer_buffer, sizeof(forecast3_layer_buffer));
+    if(persist_exists(KEY_MOON))         persist_read_string(KEY_MOON,         moon_buffer,            sizeof(moon_buffer));
+    if(persist_exists(KEY_CONDITIONS_0)) persist_read_string(KEY_CONDITIONS_0, weather_layer_buffer,   sizeof(weather_layer_buffer));
+    if(persist_exists(KEY_WEATHER_TS))   weather_ts = persist_read_int(KEY_WEATHER_TS);
+    
+    
+    
+    
+    
+    
+    
     window_set_background_color(s_main_window, GColorOxfordBlue); //GColorOxfordBlue);
     
     
     // Create time TextLayer
-    s_time_layer = text_layer_create(GRect(0, 37, 144, 53));
+    s_time_layer = text_layer_create(GRect(0, 38, 144, 53));
     text_layer_set_background_color(s_time_layer, GColorClear);
     text_layer_set_text_color(s_time_layer, GColorBlack);
     text_layer_set_overflow_mode(s_time_layer, GTextOverflowModeWordWrap);
@@ -525,7 +563,7 @@ static void main_window_load(Window *window) {
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
 
     
-    s_tz1_layer = text_layer_create(GRect(58, 45, 29, 21));
+    s_tz1_layer = text_layer_create(GRect(58, 46, 29, 21));
     text_layer_set_background_color(s_tz1_layer, GColorClear);
     text_layer_set_text_color(s_tz1_layer, GColorBlack);
     //text_layer_set_text(s_tz1_layer, "23");
@@ -541,132 +579,11 @@ static void main_window_load(Window *window) {
     text_layer_set_text_alignment(s_tz2_layer, GTextAlignmentCenter);
     layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_tz2_layer));
     
-    
 
     handle_battery(battery_state_service_peek());
     handle_bluetooth(bluetooth_connection_service_peek());
 
-    
-    //Create GFont
-    //s_time_font = fonts_get_system_font(FONT_KEY_LECO_38_BOLD_NUMBERS);
-    //    fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_PERFECT_DOS_48));
-    
-/*
-    // Next Bus
-    s_nextbus_layer = text_layer_create(GRect(0,100,144,50));
-    text_layer_set_overflow_mode(s_nextbus_layer, GTextOverflowModeWordWrap);
-    text_layer_set_background_color(s_nextbus_layer, GColorClear);
-    text_layer_set_text_color(s_nextbus_layer, GColorWhite);
-    text_layer_set_text_alignment(s_nextbus_layer, GTextAlignmentRight);
-    //text_layer_set_text(s_nextbus_layer, "59");
-    text_layer_set_font(s_nextbus_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DEJAVU_SANS_COND_47)));
-    //text_layer_set_font(s_nextbus_layer, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_nextbus_layer));
-*/
-
-/* 
-    // Buses index 1-3
-    s_bus0123_layer = text_layer_create(GRect(1,12,68,47));
-    text_layer_set_overflow_mode(s_bus0123_layer, GTextOverflowModeWordWrap);
-    text_layer_set_background_color(s_bus0123_layer, GColorClear);
-    text_layer_set_text_color(s_bus0123_layer, GColorWhite);
-    text_layer_set_text_alignment(s_bus0123_layer, GTextAlignmentLeft);
-    //text_layer_set_text(s_bus0123_layer, "59");
-    text_layer_set_font(s_bus0123_layer, s_weather_font);
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_bus0123_layer));
-*/
-    
-    // Buses index 4-6
-    //s_bus456_layer = text_layer_create(GRect(86,20,68,47));
-    //text_layer_set_overflow_mode(s_bus456_layer, GTextOverflowModeWordWrap);
-    //text_layer_set_background_color(s_bus456_layer, GColorClear);
-    //text_layer_set_text_color(s_bus456_layer, GColorWhite);
-    //text_layer_set_text_alignment(s_bus456_layer, GTextAlignmentCenter);
-    //text_layer_set_text(s_nextbus_layer, "59");
-    //text_layer_set_font(s_bus456_layer, s_weather_font);
-    //layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_bus456_layer));
-    
-    //Apply to TextLayer
-    
-
-    //Apply to TextLayer
-    
-    
-    // Add it as a child layer to the Window's root layer
-
-    
-    
-    
-    // Create current weather shadow Layer
-    s_weathershadow_layer = text_layer_create(GRect(1, 94, 144, 30));
-    text_layer_set_background_color(s_weathershadow_layer, GColorClear);
-    text_layer_set_text_color(s_weathershadow_layer, GColorBlack);
-    text_layer_set_text_alignment(s_weathershadow_layer, GTextAlignmentRight);
-    //text_layer_set_text(s_weathershadow_layer, "Loading...");
-    text_layer_set_font(s_weathershadow_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_weathershadow_layer));
-
-    
-    // Create current weather Layer
-    s_weather_layer = text_layer_create(GRect(0, 93, 144, 30));
-    text_layer_set_background_color(s_weather_layer, GColorClear);
-    text_layer_set_text_color(s_weather_layer, GColorWhite);
-    text_layer_set_text_alignment(s_weather_layer, GTextAlignmentRight);
-    //text_layer_set_text(s_weather_layer, "Loading...");
-    text_layer_set_font(s_weather_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_weather_layer));
-
-
-    // Weather Tomorrow
-    s_forecast1_layer = text_layer_create(GRect(-10,125,68,47));
-    text_layer_set_background_color(s_forecast1_layer, GColorClear);
-    text_layer_set_text_color(s_forecast1_layer, GColorWhite);
-    text_layer_set_text_alignment(s_forecast1_layer, GTextAlignmentCenter);
-    //text_layer_set_text(s_forecast1_layer, "...");
-    text_layer_set_font(s_forecast1_layer, s_weather_font);
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_forecast1_layer));
-    
-    // Weather Tomorrow + 1
-    s_forecast2_layer = text_layer_create(GRect(38,125,68,47));
-    text_layer_set_background_color(s_forecast2_layer, GColorClear);
-    text_layer_set_text_color(s_forecast2_layer, GColorWhite);
-    text_layer_set_text_alignment(s_forecast2_layer, GTextAlignmentCenter);
-    //text_layer_set_text(s_forecast2_layer, "...");
-    text_layer_set_font(s_forecast2_layer, s_weather_font);
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_forecast2_layer));
-    
-    // Weather Tomorrow + 2
-    s_forecast3_layer = text_layer_create(GRect(86,125,68,47));
-    text_layer_set_background_color(s_forecast3_layer, GColorClear);
-    text_layer_set_text_color(s_forecast3_layer, GColorWhite);
-    text_layer_set_text_alignment(s_forecast3_layer, GTextAlignmentCenter);
-    //text_layer_set_text(s_forecast3_layer, "...");
-    text_layer_set_font(s_forecast3_layer, s_weather_font);
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_forecast3_layer));
-    
-    
-    // Sunrise/Sunset
-    s_sun_layer = text_layer_create(GRect(0,152,144,17));
-    text_layer_set_background_color(s_sun_layer, GColorClear);
-    text_layer_set_text_color(s_sun_layer, GColorWhite);
-    text_layer_set_text_alignment(s_sun_layer, GTextAlignmentLeft);
-    //text_layer_set_text(s_sun_layer, "00:00 - 00:00");
-    text_layer_set_font(s_sun_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_sun_layer));
-    
-    // Moon
-    s_moon_layer = text_layer_create(GRect(0,152,144,17));
-    text_layer_set_background_color(s_moon_layer, GColorClear);
-    text_layer_set_text_color(s_moon_layer, GColorWhite);
-    text_layer_set_text_alignment(s_moon_layer, GTextAlignmentRight);
-    //text_layer_set_text(s_moon_layer, "00:00 - 00:00");
-    text_layer_set_font(s_moon_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_moon_layer));
-    
-    
-    
-    
-    
+        
     // Register with Services
     tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
     battery_state_service_subscribe(handle_battery);
@@ -704,33 +621,18 @@ static void main_window_unload(Window *window) {
     //Destroy BitmapLayer
     //bitmap_layer_destroy(s_background_layer);
 
-    // Destroy TextLayer
+    // Destroy TextLayers
     text_layer_destroy(s_time_layer);
     text_layer_destroy(s_tz1_layer);
     text_layer_destroy(s_tz2_layer);
-    //text_layer_destroy(s_date_layer);
-    //text_layer_destroy(s_battery_layer);
-    //text_layer_destroy(s_connection_layer);    
-    //text_layer_destroy(s_nextbus_layer);
-    //text_layer_destroy(s_bus0123_layer);
-    //text_layer_destroy(s_bus456_layer);
 
-    // Destroy weather elements
-    //text_layer_destroy(s_temp_layer);
-    text_layer_destroy(s_weather_layer);
-    text_layer_destroy(s_weathershadow_layer);
-    text_layer_destroy(s_forecast1_layer);
-    text_layer_destroy(s_forecast2_layer);
-    text_layer_destroy(s_forecast3_layer);
-    text_layer_destroy(s_sun_layer);
-    text_layer_destroy(s_moon_layer);
 
 
 //    layer_destroy(s_graph_layer);
 
     // Destroy custom fonts
     fonts_unload_custom_font(s_time_font);
-    fonts_unload_custom_font(s_weather_font);
+    fonts_unload_custom_font(s_tiny_font);
 }
 
 
@@ -738,6 +640,7 @@ static void main_window_unload(Window *window) {
 
 
 static void init() {
+    
     // Create main Window element and assign to pointer
     s_main_window = window_create();
 
@@ -755,8 +658,6 @@ static void init() {
 
 static void deinit() {
     // Destroy Window
-
-
 
     window_destroy(s_main_window);
 }
