@@ -13,6 +13,7 @@
 
 static Window *s_main_window;
 static TextLayer *s_time_layer;
+static PropertyAnimation *s_time_animation;
 static TextLayer *s_tz1_layer;
 static TextLayer *s_tz2_layer;
 //static TextLayer *s_date_layer;
@@ -42,6 +43,8 @@ static GPathInfo PATH_INFO = {
 
 
 //static TextLayer *s_bus456_layer;
+
+static int last_tap_ts;
 
 #define MINSCOUNT 22
     
@@ -307,6 +310,68 @@ static void handle_bluetooth(bool connected) {
     
     layer_mark_dirty(s_path_layer);
 
+}
+
+
+static void trigger_time_animation() {
+    /* ... */
+
+    // Set start and end
+    GRect from_frame = layer_get_frame((Layer*)s_time_layer);
+    GRect to_frame = GRect(0, 0, 144, 53);
+
+    // Create the animation
+    s_time_animation = property_animation_create_layer_frame((Layer*)s_time_layer, &from_frame, &to_frame);
+
+    animation_set_curve((Animation*) s_time_animation, AnimationCurveEaseInOut);
+    animation_set_duration((Animation*) s_time_animation, 2000);
+    
+    // Schedule to occur ASAP with default settings
+    animation_schedule((Animation*) s_time_animation);
+
+    /* ... */
+}
+
+
+static void handle_tap(AccelAxisType axis, int32_t direction) {
+    
+    int temp_now_ts = time(NULL);
+
+    switch (axis) {
+        case ACCEL_AXIS_X:
+            if (direction > 0) {
+                APP_LOG(APP_LOG_LEVEL_INFO, "X axis positive.");
+            } else {
+                APP_LOG(APP_LOG_LEVEL_INFO, "X axis negative.");
+            }
+            break;
+        
+        case ACCEL_AXIS_Y:
+            if (direction > 0) {
+                APP_LOG(APP_LOG_LEVEL_INFO, "Y axis positive.");
+            } else {
+                APP_LOG(APP_LOG_LEVEL_INFO, "Y axis negative.");
+            }
+            break;
+        
+        case ACCEL_AXIS_Z:
+            if (direction > 0) {
+                APP_LOG(APP_LOG_LEVEL_INFO, "Z axis positive.");
+            } else {
+                APP_LOG(APP_LOG_LEVEL_INFO, "Z axis negative.");
+            }
+            break;
+    }
+
+    // but... right now I don't care which direction is tapped.
+    // only how long since the last one.
+    
+    
+    if(last_tap_ts && ((last_tap_ts + 5) > temp_now_ts)) {
+        trigger_time_animation();
+    }
+    last_tap_ts = temp_now_ts;
+    
 }
 
 
@@ -588,6 +653,8 @@ static void main_window_load(Window *window) {
     tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
     battery_state_service_subscribe(handle_battery);
     bluetooth_connection_service_subscribe(handle_bluetooth);
+    accel_tap_service_subscribe(handle_tap);
+    
     
     // Register callbacks
     app_message_register_inbox_received(inbox_received_callback);
@@ -608,6 +675,8 @@ static void main_window_unload(Window *window) {
     tick_timer_service_unsubscribe();
     battery_state_service_unsubscribe();
     bluetooth_connection_service_unsubscribe();
+    accel_tap_service_unsubscribe();
+
     
     
     // Destroy layer and path
