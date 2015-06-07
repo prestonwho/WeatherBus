@@ -10,6 +10,9 @@
 #define KEY_MOON 7
 #define KEY_WEATHER_TS 8
 
+    
+#define NUMBER_OF_SECONDS_TO_SHOW_SECONDS_AFTER_TAP 180
+    
 
 static GRect date_bounds[2];
 static GRect bus_bounds[2];
@@ -54,6 +57,9 @@ static GPathInfo PATH_INFO = {
 static int last_tap_ts;
 static bool allow_redraw = true;
 static uint8_t mode = 0;
+
+bool isShowingSeconds = false;
+//time_t timeOfLastTap = 0;
 
 #define MINSCOUNT 22
     
@@ -219,7 +225,22 @@ static void update_time() {
     
     strftime(datebuffer,  sizeof("Sat 2015-05-23"), "%a %F", tick_time);
     snprintf(tz1buffer,   sizeof(tz1buffer),        "%02d",  (gmt_time->tm_hour));
-    snprintf(tz2buffer,   sizeof(tz2buffer),        "%02d",  (tick_time->tm_hour + 3) % 24);
+    
+    if (isShowingSeconds)
+    {
+        // isShowingSeconds is toggled by a watch bump to save battery.
+        snprintf(tz1buffer, sizeof(tz1buffer), ":");
+        strftime(tz2buffer, sizeof(tz2buffer), "%S", tick_time);
+    }
+    else
+    {
+        // Clear out the seconds field.
+        snprintf(tz1buffer, sizeof(tz1buffer), "%02d", (gmt_time->tm_hour));
+        snprintf(tz2buffer, sizeof(tz2buffer), "%02d", (tick_time->tm_hour + 3) % 24);
+    }
+    
+    
+    
     //snprintf(weather_age, sizeof(weather_age),      "%ld",   (time(NULL) - weather_ts) / 60);
     
     
@@ -239,6 +260,22 @@ static void update_time() {
     }
     
     
+}
+
+
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+    
+    if (isShowingSeconds) {
+        if ((time(NULL) - last_tap_ts) > NUMBER_OF_SECONDS_TO_SHOW_SECONDS_AFTER_TAP) {
+            // We are showing seconds, but it has been more than 3
+            // minutes since our wrist was tapped. To save processing,
+            // stop showing seconds (revert back to one minute updates).
+            isShowingSeconds = false;
+            tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+        }
+    }
+    
+    update_time();
 }
 
 
@@ -457,6 +494,28 @@ static void trigger_time_animation(uint8_t delta) {
 static void handle_tap(AccelAxisType axis, int32_t direction) {
     
     int temp_now_ts = time(NULL);
+    
+    if (!isShowingSeconds)
+    {
+        // We aren't showing seconds, let's show them and switch
+        // to the second_unit timer subscription.
+        isShowingSeconds = true;
+
+        // Immediatley update the time so our tap looks very responsive.
+        //struct tm *tick_time = localtime(&last_tap_ts);
+        //update_time(tick_time);
+
+        // Resubscribe to the tick timer at every second.
+        tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+    }
+    
+    
+    // two taps within 5 seconds: switch modes.
+    if(last_tap_ts && ((last_tap_ts + 5) > temp_now_ts)) {
+        trigger_time_animation(1);
+    }
+    last_tap_ts = temp_now_ts;
+    
 
     switch (axis) {
         case ACCEL_AXIS_X:
@@ -484,24 +543,12 @@ static void handle_tap(AccelAxisType axis, int32_t direction) {
             break;
     }
 
-    // but... right now I don't care which direction is tapped.
-    // only how long since the last one.
     
-    
-    if(last_tap_ts && ((last_tap_ts + 5) > temp_now_ts)) {
-        trigger_time_animation(1);
-    }
-    last_tap_ts = temp_now_ts;
     
 }
 
 
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-    
-    update_time();
 
-    
-}
 
 
 //works??
