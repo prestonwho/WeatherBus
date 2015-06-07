@@ -11,24 +11,31 @@
 #define KEY_WEATHER_TS 8
 
 
+static GRect date_bounds[2];
+static GRect bus_bounds[2];
+static GRect time_bounds[2];
+static GRect currentweather_bounds[2];
+static GRect forecast_bounds[2];
+static GRect astro_bounds[2];
+    
 static Window *s_main_window;
-static TextLayer *s_time_layer;
+static Layer *s_date_layer;
+static Layer *s_bus_layer;
+static Layer *s_time_layer;
+static Layer *s_currentweather_layer;
+static Layer *s_forecast_layer;
+static Layer *s_astro_layer;
+
+static PropertyAnimation *s_date_animation;
 static PropertyAnimation *s_time_animation;
-static TextLayer *s_tz1_layer;
-static TextLayer *s_tz2_layer;
-//static TextLayer *s_date_layer;
-//static TextLayer *s_temp_layer;
-//static TextLayer *s_weather_layer;
-//static TextLayer *s_weathershadow_layer;
-//static TextLayer *s_forecast1_layer;
-//static TextLayer *s_forecast2_layer;
-//static TextLayer *s_forecast3_layer;
-//static TextLayer *s_sun_layer;
-//static TextLayer *s_moon_layer;
-//static TextLayer *s_nextbus_layer;
-//static TextLayer *s_bus0123_layer;
-//static TextLayer *s_battery_layer;
-//static TextLayer *s_connection_layer;
+static PropertyAnimation *s_bus_animation;
+static PropertyAnimation *s_currentweather_animation;
+static PropertyAnimation *s_forecast_animation;
+static PropertyAnimation *s_astro_animation;
+
+//static TextLayer *s_tz1_layer;
+//static TextLayer *s_tz2_layer;
+
 
 
 static Layer *s_path_layer;
@@ -45,6 +52,8 @@ static GPathInfo PATH_INFO = {
 //static TextLayer *s_bus456_layer;
 
 static int last_tap_ts;
+static bool allow_redraw = true;
+static uint8_t mode = 0;
 
 #define MINSCOUNT 22
     
@@ -89,7 +98,7 @@ static GFont s_tiny_font;
 //static GBitmap *s_background_bitmap;
 
 // Create a long-lived buffer
-static char buffer[] = "00 00";
+static char time_buffer[] = "00 00";
 static char tz1buffer[] = "00";
 static char tz2buffer[] = "00";
 
@@ -122,6 +131,22 @@ static char weather_age[] = "Forecast age 99999 min";
 //static char bus456[] = "99999\n99999\n99999";
 
 static int etas[MINSCOUNT] = { 0 };
+
+
+
+static void trigger_weather_update() {
+    
+    // Begin dictionary
+    DictionaryIterator *iter;
+    app_message_outbox_begin(&iter);
+
+    // Add a key-value pair
+    dict_write_uint8(iter, 0, 0);
+
+    // Send the message!
+    app_message_outbox_send();
+    
+}
 
 
 static void update_time() {
@@ -172,7 +197,7 @@ static void update_time() {
         //text_layer_set_font(s_nextbus_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
         //nbHours = etas[0] / 60;               // integer math; should be rounded down.
         //nbMinutes = etas[0] - (nbHours * 60); // remove the whole hours leaving just the minutes
-        snprintf(nextbus, sizeof(nextbus), "%dh", etas[0] / 60);
+        snprintf(nextbus, sizeof(nextbus), "%dh", (etas[0]+30) / 60);
     }
     
     snprintf(bus0123, sizeof(bus0123), "%02d:%02d (%d)\n%02d:%02d (%d)\n%02d:%02d (%d)", //\n%02d:%02d (%d)", 
@@ -185,10 +210,10 @@ static void update_time() {
     // Write the current hours and minutes into the buffer
     if(clock_is_24h_style() == true) {
         //Use 2h hour format
-        strftime(buffer, sizeof("00 00"), "%H %M", tick_time);
+        strftime(time_buffer, sizeof("00 00"), "%H %M", tick_time);
     } else {
         //Use 12 hour format
-        strftime(buffer, sizeof("00 00"), "%I %M", tick_time);
+        strftime(time_buffer, sizeof("00 00"), "%I %M", tick_time);
     }
     
     
@@ -199,13 +224,20 @@ static void update_time() {
     
     
     // Display this time on the TextLayer
-    text_layer_set_text(s_time_layer, buffer);
-    text_layer_set_text(s_tz1_layer, tz1buffer);
-    text_layer_set_text(s_tz2_layer, tz2buffer);
+    //text_layer_set_text(s_time_layer, buffer);
+    //text_layer_set_text(s_tz1_layer, tz1buffer);
+    //text_layer_set_text(s_tz2_layer, tz2buffer);
 
     
-    //layer_mark_dirty(s_path_layer);
+    layer_mark_dirty(s_time_layer);
 
+    
+    // If weather is more than 30 minutes old, update... but don't try more often than once every 10 minutes.
+    if(tick_time->tm_min % 10 == 0 && ((time(NULL) - weather_ts) > (30 * 60))) {
+        
+        trigger_weather_update();
+    }
+    
     
 }
 
@@ -308,27 +340,116 @@ static void handle_bluetooth(bool connected) {
     
     snprintf(bluetooth_buffer, sizeof(bluetooth_buffer), (connected ? "*" : ""));
     
+    if(connected) {
+        
+        //BUG: triggering the weather update here is causing crashes.
+        //trigger_weather_update();
+    }
+    
     layer_mark_dirty(s_path_layer);
 
 }
 
+void animation_started(Animation *animation, void *data) {
+    // Animation started!
+    allow_redraw = false;
+}
 
-static void trigger_time_animation() {
+void animation_stopped(Animation *animation, bool finished, void *data) {
+    // Animation stopped!
+    allow_redraw = true;
+}
+
+static void trigger_time_animation(uint8_t delta) {
     /* ... */
 
+    uint8_t prevmode = mode;
+    mode = ((mode + delta) % 2);
+    
+    //trigger_time_animation(mode,nextmode);
+    
+    
+    
+    
     // Set start and end
-    GRect from_frame = layer_get_frame((Layer*)s_time_layer);
-    GRect to_frame = GRect(0, 0, 144, 53);
+    
+    GRect *date_from_frame = &date_bounds[prevmode]; //layer_get_frame((Layer*)s_time_layer);
+    GRect *date_to_frame = &date_bounds[mode];
+    
+    GRect *time_from_frame = &time_bounds[prevmode]; //layer_get_frame((Layer*)s_time_layer);
+    GRect *time_to_frame = &time_bounds[mode];
 
-    // Create the animation
-    s_time_animation = property_animation_create_layer_frame((Layer*)s_time_layer, &from_frame, &to_frame);
+    
+    GRect *bus_from_frame = &bus_bounds[prevmode];
+    GRect *bus_to_frame = &bus_bounds[mode];
+    
+    GRect *currentweather_from_frame = &currentweather_bounds[prevmode];
+    GRect *currentweather_to_frame = &currentweather_bounds[mode];
+    
+    
+    // Create the date animation
+    s_date_animation = property_animation_create_layer_frame((Layer*) s_date_layer, date_from_frame, date_to_frame);
+    
+    animation_set_curve((Animation*) s_date_animation, AnimationCurveEaseInOut);
+    animation_set_duration((Animation*) s_date_animation, 1000);
+    
+    // You may set handlers to listen for the start and stop events
+    /*animation_set_handlers((Animation*) s_bus_animation, (AnimationHandlers) {
+        .started = (AnimationStartedHandler) animation_started,
+        .stopped = (AnimationStoppedHandler) animation_stopped,
+    }, NULL);*/
 
+    // Schedule to occur ASAP with default settings
+    animation_schedule((Animation*) s_date_animation);
+    
+    
+    // Create the bus animation
+    s_bus_animation = property_animation_create_layer_frame((Layer*) s_bus_layer, bus_from_frame, bus_to_frame);
+    
+    animation_set_curve((Animation*) s_bus_animation, AnimationCurveEaseInOut);
+    animation_set_duration((Animation*) s_bus_animation, 1000);
+    
+    // You may set handlers to listen for the start and stop events
+    /*animation_set_handlers((Animation*) s_bus_animation, (AnimationHandlers) {
+        .started = (AnimationStartedHandler) animation_started,
+        .stopped = (AnimationStoppedHandler) animation_stopped,
+    }, NULL);*/
+
+    // Schedule to occur ASAP with default settings
+    animation_schedule((Animation*) s_bus_animation);
+    
+    
+    // Create the time animation
+    s_time_animation = property_animation_create_layer_frame((Layer*) s_time_layer, time_from_frame, time_to_frame);
+    
     animation_set_curve((Animation*) s_time_animation, AnimationCurveEaseInOut);
     animation_set_duration((Animation*) s_time_animation, 2000);
     
+    // You may set handlers to listen for the start and stop events
+    animation_set_handlers((Animation*) s_time_animation, (AnimationHandlers) {
+        .started = (AnimationStartedHandler) animation_started,
+        .stopped = (AnimationStoppedHandler) animation_stopped,
+    }, NULL);
+
     // Schedule to occur ASAP with default settings
     animation_schedule((Animation*) s_time_animation);
 
+    
+    // Create the currentweather animation
+    s_currentweather_animation = property_animation_create_layer_frame((Layer*) s_currentweather_layer, currentweather_from_frame, currentweather_to_frame);
+    
+    animation_set_curve((Animation*) s_currentweather_animation, AnimationCurveEaseInOut);
+    animation_set_duration((Animation*) s_currentweather_animation, 1000);
+    
+    // You may set handlers to listen for the start and stop events
+    /*animation_set_handlers((Animation*) s_time_animation, (AnimationHandlers) {
+        .started = (AnimationStartedHandler) animation_started,
+        .stopped = (AnimationStoppedHandler) animation_stopped,
+    }, NULL);*/
+
+    // Schedule to occur ASAP with default settings
+    animation_schedule((Animation*) s_currentweather_animation);
+    
     /* ... */
 }
 
@@ -368,7 +489,7 @@ static void handle_tap(AccelAxisType axis, int32_t direction) {
     
     
     if(last_tap_ts && ((last_tap_ts + 5) > temp_now_ts)) {
-        trigger_time_animation();
+        trigger_time_animation(1);
     }
     last_tap_ts = temp_now_ts;
     
@@ -379,20 +500,24 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     
     update_time();
 
-    // Get weather update every 30 minutes
-    if(tick_time->tm_min % 30 == 0) {
-        
-        // Begin dictionary
-        DictionaryIterator *iter;
-        app_message_outbox_begin(&iter);
-
-        // Add a key-value pair
-        dict_write_uint8(iter, 0, 0);
-
-        // Send the message!
-        app_message_outbox_send();
-    }
+    
 }
+
+
+//works??
+//static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+    //uint8_t clicks = click_number_of_clicks_counted(recognizer);
+    //if(clicks > 1) {
+//    trigger_time_animation(1);
+    //}
+//}
+
+//works??
+//static void click_config_provider(void *context) {
+    // Register the ClickHandlers
+    //window_single_click_subscribe(BUTTON_ID_BACK, back_click_handler);
+//    window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
+//}
 
 static void draw_text_shadowed(GContext * ctx, const char * text, GFont const font,
         const int x, const int y, const int w, const int h, const GTextOverflowMode overflow_mode,
@@ -401,21 +526,22 @@ static void draw_text_shadowed(GContext * ctx, const char * text, GFont const fo
         const int fuzzNE, const int fuzzSE, const int fuzzSW, const int fuzzNW,
         GColor fuzzColor, GColor textColor) {
     
-    graphics_context_set_text_color(ctx, fuzzColor);
-    if(fuzzNW) graphics_draw_text(ctx, text, font, GRect(x-fuzzNW,y-fuzzNW,w,h), overflow_mode, alignment, layout);
-    if(fuzzNE) graphics_draw_text(ctx, text, font, GRect(x+fuzzNE,y-fuzzNE,w,h), overflow_mode, alignment, layout);
-    if(fuzzSE) graphics_draw_text(ctx, text, font, GRect(x+fuzzSE,y+fuzzSE,w,h), overflow_mode, alignment, layout);
-    if(fuzzSW) graphics_draw_text(ctx, text, font, GRect(x-fuzzSW,y+fuzzSW,w,h), overflow_mode, alignment, layout);
-    
+    if(allow_redraw) {
+        graphics_context_set_text_color(ctx, fuzzColor);
+        if(fuzzNW) graphics_draw_text(ctx, text, font, GRect(x-fuzzNW,y-fuzzNW,w,h), overflow_mode, alignment, layout);
+        if(fuzzNE) graphics_draw_text(ctx, text, font, GRect(x+fuzzNE,y-fuzzNE,w,h), overflow_mode, alignment, layout);
+        if(fuzzSE) graphics_draw_text(ctx, text, font, GRect(x+fuzzSE,y+fuzzSE,w,h), overflow_mode, alignment, layout);
+        if(fuzzSW) graphics_draw_text(ctx, text, font, GRect(x-fuzzSW,y+fuzzSW,w,h), overflow_mode, alignment, layout);
+    }
     graphics_context_set_text_color(ctx, textColor);
     graphics_draw_text(ctx, text, font, GRect(x,y,w,h), overflow_mode, alignment, layout);
 }
 
-
-static void layer_update_proc(Layer *layer, GContext *ctx) {
+static void date_layer_update_proc(Layer *layer, GContext *ctx) {
     
-    // TOP ROW
+    //if(!allow_redraw) return;
     
+    //APP_LOG(APP_LOG_LEVEL_INFO, "date_layer_update_proc!");
     
     // Draw the date
     draw_text_shadowed(ctx, datebuffer, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
@@ -438,76 +564,133 @@ static void layer_update_proc(Layer *layer, GContext *ctx) {
                        0,1,0,0,
                        GColorBlack, GColorWhite);
     
-    graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,11), GPoint(144,11));
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,11), GPoint(144,11));
+    }
     graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
     graphics_draw_line(ctx, GPoint(0,10), GPoint(144,10));
     
+}
+
+static void time_layer_update_proc(Layer *layer, GContext *ctx) {
+    
+    //if(!allow_redraw) return;
+    
+    APP_LOG(APP_LOG_LEVEL_INFO, "time_layer_update_proc!");
+
+    #ifdef PBL_COLOR
+        graphics_context_set_fill_color(ctx, GColorOxfordBlue);
+    #else
+        graphics_context_set_fill_color(ctx, GColorBlack);
+    #endif
+    
+    graphics_fill_rect(ctx, GRect(0, 0, 144, 168), 0, GCornerNone);
+    
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,1), GPoint(144,1));
+    }
+    graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
+    graphics_draw_line(ctx, GPoint(0,0), GPoint(144,0));    
+    
+    // Draw the time's background rectangle
+    if(allow_redraw) {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, GRect(3, 6, 140, 45), 0, GCornerNone);
+    }
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_fill_rect(ctx, GRect(2, 5, 140, 45), 0, GCornerNone);
+    
+    draw_text_shadowed(ctx, time_buffer, s_time_font,
+                       0,-2,144,50,
+                       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
+                       0,1,0,0,
+                       GColorWhite, GColorBlack);
+    
+    draw_text_shadowed(ctx, tz1buffer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                       58, 6, 29, 21,
+                       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
+                       0,1,0,0,
+                       GColorWhite, GColorBlack);
+    
+    draw_text_shadowed(ctx, tz2buffer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                       58, 24, 29, 21,
+                       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
+                       0,1,0,0,
+                       GColorWhite, GColorBlack);
     
     
-    // BUS ROW
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,55), GPoint(144,55));
+    }
+    graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
+    graphics_draw_line(ctx, GPoint(0,54), GPoint(144,54));
+
+}
+
+static void bus_layer_update_proc(Layer *layer, GContext *ctx) {
+
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,1), GPoint(144,1));
+    }
+    graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
+    graphics_draw_line(ctx, GPoint(0,0), GPoint(144,0));
     
     
     // Three buses following the next one
     draw_text_shadowed(ctx, bus0123, s_tiny_font,
-                       1,11,68,47,
+                       1,1,68,47,
                        GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL,
                        0,1,0,0,
                        GColorBlack, GColorWhite);
     
     
     // Next Bus Time
-    draw_text_shadowed(ctx, nextbus, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DEJAVU_SANS_COND_47)),
-                       0,1,144,41,
+    draw_text_shadowed(ctx, nextbus, s_time_font,
+                       0,-9,144,41,
                        GTextOverflowModeWordWrap, GTextAlignmentRight, NULL,
                        0,2,0,0,
                        GColorBlack, GColorWhite);
     
-    // "erase" the bottom portion of the next bus time.
-    graphics_context_set_fill_color(ctx, GColorOxfordBlue);
-    graphics_fill_rect(ctx, GRect(0, 41, 144, 10), 0, GCornerNone);
     
-    graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,41), GPoint(144,41));
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,31), GPoint(144,31));
+    }
     graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,40), GPoint(144,40));
+    graphics_draw_line(ctx, GPoint(0,30), GPoint(144,30));
+}
+
+
+static void currentweather_layer_update_proc(Layer *layer, GContext *ctx) {
+
+// CURRENT WEATHER ROW
     
-    
-    
-    // TIME ROW
-    
-    
-    // Draw the time's background rectangle
-    graphics_context_set_fill_color(ctx, GColorBlack);
-    graphics_fill_rect(ctx, GRect(3, 45, 140, 43), 0, GCornerNone);
-    graphics_context_set_fill_color(ctx, GColorWhite);
-    graphics_fill_rect(ctx, GRect(2, 46, 140, 43), 0, GCornerNone);
-    
-    
-    graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,95), GPoint(144,95));
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,1), GPoint(144,1));
+    }
     graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,94), GPoint(144,94));
+    graphics_draw_line(ctx, GPoint(0,0), GPoint(144,0));
     
     
-    
-    // CURRENT WEATHER ROW
-    
-    
-    draw_text_shadowed(ctx, temperature_buffer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DEJAVU_SANS_COND_47)),
-                       0,86,144,40,
+    draw_text_shadowed(ctx, temperature_buffer, s_time_font,
+                       0,-8,144,40,
                        GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL,
                        1,1,1,1,
                        GColorBlack, GColorWhite);
     
     // "erase" the bottom portion of the current temp.
-    graphics_context_set_fill_color(ctx, GColorOxfordBlue);
-    graphics_fill_rect(ctx, GRect(0, 126, 144, 10), 0, GCornerNone);
+    //graphics_context_set_fill_color(ctx, GColorOxfordBlue);
+    //graphics_fill_rect(ctx, GRect(0, 126, 144, 10), 0, GCornerNone);
     
         
     // current conditions
     draw_text_shadowed(ctx, weather_layer_buffer, s_tiny_font,
-                       0,95,144,30,
+                       0,1,144,30,
                        GTextOverflowModeWordWrap, GTextAlignmentRight, NULL,
                        1,1,1,1,
                        GColorBlack, GColorWhite);
@@ -516,44 +699,55 @@ static void layer_update_proc(Layer *layer, GContext *ctx) {
     // small text for age of weather
     snprintf(weather_age, sizeof(weather_age),      "(age %ld min)",   (time(NULL) - weather_ts) / 60);
     draw_text_shadowed(ctx, weather_age, s_tiny_font,
-                       0,113,144,15,
+                       0,19,144,15,
                        GTextOverflowModeWordWrap, GTextAlignmentRight, NULL,
                        1,1,1,1,
                        GColorBlack, GColorWhite);
     
     
     
-    graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,125), GPoint(144,125));
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,31), GPoint(144,31));
+    }
     graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,124), GPoint(144,124));
-    
-    
-    
-    // WEATHER FORECAST ROW
+    graphics_draw_line(ctx, GPoint(0,30), GPoint(144,30));
     
 
+}
+    
+static void forecast_layer_update_proc(Layer *layer, GContext *ctx) {
+}
+    
+static void astro_layer_update_proc(Layer *layer, GContext *ctx) {
+}
+
+static void layer_update_proc(Layer *layer, GContext *ctx) {
+    
+    
     
 
     draw_text_shadowed(ctx, forecast1_layer_buffer, s_tiny_font,
                        -10,125,68,47,
                        GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
-                       0,1,0,0,
+                       1,1,1,1,
                        GColorBlack, GColorWhite);
     draw_text_shadowed(ctx, forecast2_layer_buffer, s_tiny_font,
                        38,125,68,47,
                        GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
-                       0,1,0,0,
+                       1,1,1,1,
                        GColorBlack, GColorWhite);
     draw_text_shadowed(ctx, forecast3_layer_buffer, s_tiny_font,
                        86,125,68,47,
                        GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL,
-                       0,1,0,0,
+                       1,1,1,1,
                        GColorBlack, GColorWhite);
     
     
-    graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
-    graphics_draw_line(ctx, GPoint(0,155), GPoint(144,155));
+    if(allow_redraw) {
+        graphics_context_set_stroke_color(ctx, GColorBlack); // GColorFromRGB(255, 0, 0));
+        graphics_draw_line(ctx, GPoint(0,155), GPoint(144,155));
+    }
     graphics_context_set_stroke_color(ctx, GColorWhite); // GColorFromRGB(255, 0, 0));
     graphics_draw_line(ctx, GPoint(0,154), GPoint(144,154));
 
@@ -581,10 +775,28 @@ static void main_window_load(Window *window) {
     Layer *window_layer = window_get_root_layer(window);
     GRect bounds = layer_get_bounds(window_layer);
     
+    time_bounds[0] = GRect(0, 40, 144, 56);
+    time_bounds[1] = GRect(0, 112, 144, 56);
+    
+    date_bounds[0] = GRect(0, 0, 144, 12);
+    date_bounds[1] = GRect(-144, 0, 144, 12);
+    
+    bus_bounds[0] = GRect(0,10,144,31);
+    bus_bounds[1] = GRect(145,10,144,31);
+    
+    
+    //static GRect currentweather_bounds[2];
+    //static GRect forecast_bounds[2];
+    //static GRect astro_bounds[2];
+    
+    currentweather_bounds[0] = GRect(0,94,144,31);
+    currentweather_bounds[1] = GRect(-144,94,144,31);
+    
     // Create second custom font, apply it and add to Window
     s_tiny_font = //fonts_get_system_font(FONT_KEY_GOTHIC_14);
         fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DEJAVU_SANS_9));
-    
+    s_time_font =
+        fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DEJAVU_SANS_COND_47));
    
     
     
@@ -609,42 +821,43 @@ static void main_window_load(Window *window) {
     if(persist_exists(KEY_WEATHER_TS))   weather_ts = persist_read_int(KEY_WEATHER_TS);
     
     
-    
-    
-    
-    
-    
-    window_set_background_color(s_main_window, GColorOxfordBlue); //GColorOxfordBlue);
-    
-    
-    // Create time TextLayer
-    s_time_layer = text_layer_create(GRect(0, 38, 144, 53));
-    text_layer_set_background_color(s_time_layer, GColorClear);
-    text_layer_set_text_color(s_time_layer, GColorBlack);
-    text_layer_set_overflow_mode(s_time_layer, GTextOverflowModeWordWrap);
-    //text_layer_set_text(s_time_layer, "00  00");
-    text_layer_set_font(s_time_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DEJAVU_SANS_COND_47))); //fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49));  //s_time_font);
-    text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
 
     
-    s_tz1_layer = text_layer_create(GRect(58, 46, 29, 21));
-    text_layer_set_background_color(s_tz1_layer, GColorClear);
-    text_layer_set_text_color(s_tz1_layer, GColorBlack);
-    //text_layer_set_text(s_tz1_layer, "23");
-    text_layer_set_font(s_tz1_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-    text_layer_set_text_alignment(s_tz1_layer, GTextAlignmentCenter);
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_tz1_layer));
+    #ifdef PBL_COLOR
+        window_set_background_color(s_main_window, GColorOxfordBlue); //GColorOxfordBlue);
+    #else
+        window_set_background_color(s_main_window, GColorBlack); //GColorOxfordBlue);
+    #endif
     
-    s_tz2_layer = text_layer_create(GRect(58, 64, 29, 21));
-    text_layer_set_background_color(s_tz2_layer, GColorClear);
-    text_layer_set_text_color(s_tz2_layer, GColorBlack);
-    //text_layer_set_text(s_tz2_layer, "23");
-    text_layer_set_font(s_tz2_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-    text_layer_set_text_alignment(s_tz2_layer, GTextAlignmentCenter);
-    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_tz2_layer));
+        
+    // Create date Layer
+    s_date_layer = layer_create(date_bounds[mode]);
+    layer_set_update_proc(s_date_layer, date_layer_update_proc);
+    layer_add_child(window_layer, s_date_layer);
     
+    // Create bus Layer
+    s_bus_layer       = layer_create(bus_bounds[mode]);
+    layer_set_update_proc(s_bus_layer, bus_layer_update_proc);
+    layer_add_child(window_layer, s_bus_layer);
+    
+    s_currentweather_layer = layer_create(currentweather_bounds[mode]);
+    layer_set_update_proc(s_currentweather_layer, currentweather_layer_update_proc);
+    layer_add_child(window_layer, s_currentweather_layer);
 
+    s_forecast_layer       = layer_create(forecast_bounds[mode]);
+    layer_set_update_proc(s_forecast_layer, forecast_layer_update_proc);
+    layer_add_child(window_layer, s_forecast_layer);
+
+    s_astro_layer          = layer_create(astro_bounds[mode]);
+    layer_set_update_proc(s_astro_layer, astro_layer_update_proc);
+    layer_add_child(window_layer, s_astro_layer);
+    
+    // Create time Layer
+    s_time_layer = layer_create(time_bounds[mode]);
+    layer_set_update_proc(s_time_layer, time_layer_update_proc);
+    layer_add_child(window_layer, s_time_layer);
+    
+    
     handle_battery(battery_state_service_peek());
     handle_bluetooth(bluetooth_connection_service_peek());
 
@@ -654,6 +867,9 @@ static void main_window_load(Window *window) {
     battery_state_service_subscribe(handle_battery);
     bluetooth_connection_service_subscribe(handle_bluetooth);
     accel_tap_service_subscribe(handle_tap);
+    
+    //works??
+    //window_set_click_config_provider(s_main_window, click_config_provider);
     
     
     // Register callbacks
@@ -690,10 +906,17 @@ static void main_window_unload(Window *window) {
     //Destroy BitmapLayer
     //bitmap_layer_destroy(s_background_layer);
 
-    // Destroy TextLayers
-    text_layer_destroy(s_time_layer);
-    text_layer_destroy(s_tz1_layer);
-    text_layer_destroy(s_tz2_layer);
+    // Destroy Layers
+    layer_destroy(s_date_layer);
+    layer_destroy(s_bus_layer);
+    layer_destroy(s_time_layer);
+    layer_destroy(s_currentweather_layer);
+    layer_destroy(s_forecast_layer);
+    layer_destroy(s_astro_layer);
+
+
+    //text_layer_destroy(s_tz1_layer);
+    //text_layer_destroy(s_tz2_layer);
 
 
 
