@@ -22,6 +22,9 @@ var xhrRequest = function (url, type, data, callback) {
     };
     
     xhr.onload = function () {
+        
+        //console.log(this.response);
+        console.log(this.responseText);
         callback(this);
     };
     
@@ -34,7 +37,7 @@ function locationSuccess(pos) {
     //var url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
     //    pos.coords.latitude + "&lon=" + pos.coords.longitude;
 
-    var url = "http://api.wunderground.com/api/1a654e3055c497ee/geolookup/conditions/forecast/astronomy/q/" +
+    var url = "http://api.wunderground.com/api/1a654e3055c497ee/geolookup/conditions/forecast/forecast10day/astronomy/q/" +
         pos.coords.latitude + "," + pos.coords.longitude + ".json";
     
     // Send request to Weather Underground
@@ -72,32 +75,69 @@ function locationSuccess(pos) {
 
                    // Assemble dictionary using our keys
                    var dictionary = {
-                       "KEY_TEMPERATURE":  json.current_observation.temp_f,
+                       "KEY_CURR_TEMP":    json.current_observation.temp_f,
                        
-                       "KEY_CONDITIONS_0": json.forecast.simpleforecast.forecastday[0].high.fahrenheit + "°/" +
+                       "KEY_CURR_LOC":     json.current_observation.display_location.full,
+                       
+                       "KEY_CURR_WX":      json.forecast.simpleforecast.forecastday[0].high.fahrenheit + "°/" +
                                            json.forecast.simpleforecast.forecastday[0].low.fahrenheit + "° " +
                                            "(" + json.forecast.simpleforecast.forecastday[0].pop + "% pop)\n" +
                                            "(feel " + Math.round(parseFloat(json.current_observation.feelslike_f)) + "°) " +
                                            json.current_observation.weather,
-                                            
-                       
-                       "KEY_FORECAST_1":   json.forecast.simpleforecast.forecastday[1].date.weekday.substring(0,2) + " " +
+
+                       "KEY_FCAST_1":      json.forecast.simpleforecast.forecastday[1].date.weekday.substring(0,2) + " " +
                                            json.forecast.simpleforecast.forecastday[1].pop + "%\n" +
                                            json.forecast.simpleforecast.forecastday[1].high.fahrenheit + "°/" +
                                            json.forecast.simpleforecast.forecastday[1].low.fahrenheit + "°\n" +
                                            json.forecast.simpleforecast.forecastday[1].conditions,
                        
-                       "KEY_FORECAST_2":   json.forecast.simpleforecast.forecastday[2].date.weekday.substring(0,2) + " " +
+                       "KEY_FCAST_2":      json.forecast.simpleforecast.forecastday[2].date.weekday.substring(0,2) + " " +
                                            json.forecast.simpleforecast.forecastday[2].pop + "%\n" +
                                            json.forecast.simpleforecast.forecastday[2].high.fahrenheit + "°/" +
                                            json.forecast.simpleforecast.forecastday[2].low.fahrenheit + "°\n" +
                                            json.forecast.simpleforecast.forecastday[2].conditions,
                        
-                       "KEY_FORECAST_3":   json.forecast.simpleforecast.forecastday[3].date.weekday.substring(0,2) + " " +
+                       "KEY_FCAST_3":      json.forecast.simpleforecast.forecastday[3].date.weekday.substring(0,2) + " " +
                                            json.forecast.simpleforecast.forecastday[3].pop + "%\n" +
                                            json.forecast.simpleforecast.forecastday[3].high.fahrenheit + "°/" +
                                            json.forecast.simpleforecast.forecastday[3].low.fahrenheit + "°\n" +
                                            json.forecast.simpleforecast.forecastday[3].conditions,
+                       
+                       "KEY_FCAST_4":      json.forecast.simpleforecast.forecastday[4].date.weekday.substring(0,2) + " " +
+                                           json.forecast.simpleforecast.forecastday[4].pop + "%\n" +
+                                           json.forecast.simpleforecast.forecastday[4].high.fahrenheit + "°/" +
+                                           json.forecast.simpleforecast.forecastday[4].low.fahrenheit + "°\n" +
+                                           json.forecast.simpleforecast.forecastday[4].conditions,
+                       
+                       "KEY_FCAST_5":      json.forecast.simpleforecast.forecastday[5].date.weekday.substring(0,2) + " " +
+                                           json.forecast.simpleforecast.forecastday[5].pop + "%\n" +
+                                           json.forecast.simpleforecast.forecastday[5].high.fahrenheit + "°/" +
+                                           json.forecast.simpleforecast.forecastday[5].low.fahrenheit + "°\n" +
+                                           json.forecast.simpleforecast.forecastday[5].conditions,
+                       
+                       "KEY_FCAST_6":      json.forecast.simpleforecast.forecastday[6].date.weekday.substring(0,2) + " " +
+                                           json.forecast.simpleforecast.forecastday[6].pop + "%\n" +
+                                           json.forecast.simpleforecast.forecastday[6].high.fahrenheit + "°/" +
+                                           json.forecast.simpleforecast.forecastday[6].low.fahrenheit + "°\n" +
+                                           json.forecast.simpleforecast.forecastday[6].conditions,
+                       
+                       "KEY_FCAST_7":      json.forecast.simpleforecast.forecastday[7].date.weekday.substring(0,2) + " " +
+                                           json.forecast.simpleforecast.forecastday[7].pop + "%\n" +
+                                           json.forecast.simpleforecast.forecastday[7].high.fahrenheit + "°/" +
+                                           json.forecast.simpleforecast.forecastday[7].low.fahrenheit + "°\n" +
+                                           json.forecast.simpleforecast.forecastday[7].conditions,
+                       
+                       "KEY_FCAST_8":      json.forecast.simpleforecast.forecastday[8].date.weekday.substring(0,2) + " " +
+                                           json.forecast.simpleforecast.forecastday[8].pop + "%\n" +
+                                           json.forecast.simpleforecast.forecastday[8].high.fahrenheit + "°/" +
+                                           json.forecast.simpleforecast.forecastday[8].low.fahrenheit + "°\n" +
+                                           json.forecast.simpleforecast.forecastday[8].conditions,
+                       
+                       "KEY_FCAST_9":      json.forecast.simpleforecast.forecastday[9].date.weekday.substring(0,2) + " " +
+                                           json.forecast.simpleforecast.forecastday[9].pop + "%\n" +
+                                           json.forecast.simpleforecast.forecastday[9].high.fahrenheit + "°/" +
+                                           json.forecast.simpleforecast.forecastday[9].low.fahrenheit + "°\n" +
+                                           json.forecast.simpleforecast.forecastday[9].conditions,
                        
                        "KEY_SUN":          "S: " + (json.sun_phase.sunrise.hour < 10 ? "0" : "") + json.sun_phase.sunrise.hour + 
                                            ":" + json.sun_phase.sunrise.minute + "-" +
@@ -111,10 +151,18 @@ function locationSuccess(pos) {
 
                    console.log("KEY_SUN = " + dictionary.KEY_SUN);
                    console.log("KEY_MOON = " + dictionary.KEY_MOON);
-                   
-                   console.log("KEY_FORECAST_1 = " + dictionary.KEY_FORECAST_1);
-                   console.log("KEY_FORECAST_2 = " + dictionary.KEY_FORECAST_2);
-                   console.log("KEY_FORECAST_3 = " + dictionary.KEY_FORECAST_3);
+                   console.log("KEY_CURR_LOC = " + dictionary.KEY_CURR_LOC);
+                   console.log("KEY_CURR_WX = " + dictionary.KEY_CURR_WX);
+                   console.log("KEY_CURR_TEMP = " + dictionary.KEY_CURR_TEMP);
+                   console.log("KEY_FCAST_1 = " + dictionary.KEY_FCAST_1);
+                   console.log("KEY_FCAST_2 = " + dictionary.KEY_FCAST_2);
+                   console.log("KEY_FCAST_3 = " + dictionary.KEY_FCAST_3);
+                   console.log("KEY_FCAST_4 = " + dictionary.KEY_FCAST_4);
+                   console.log("KEY_FCAST_5 = " + dictionary.KEY_FCAST_5);
+                   console.log("KEY_FCAST_6 = " + dictionary.KEY_FCAST_6);
+                   console.log("KEY_FCAST_7 = " + dictionary.KEY_FCAST_7);
+                   console.log("KEY_FCAST_8 = " + dictionary.KEY_FCAST_8);
+                   console.log("KEY_FCAST_9 = " + dictionary.KEY_FCAST_9);
                    
                    
                    // Send to Pebble

@@ -1,12 +1,20 @@
 {
     "appKeys": {
-        "KEY_CONDITIONS_0": 6,
-        "KEY_FORECAST_1": 3,
-        "KEY_FORECAST_2": 4,
-        "KEY_FORECAST_3": 5,
-        "KEY_MOON": 7,
-        "KEY_SUN": 2,
-        "KEY_TEMPERATURE": 1
+        "KEY_CURR_LOC": 4,
+        "KEY_CURR_TEMP": 3,
+        "KEY_CURR_WX": 10,
+        "KEY_FCAST_1": 11,
+        "KEY_FCAST_2": 12,
+        "KEY_FCAST_3": 13,
+        "KEY_FCAST_4": 14,
+        "KEY_FCAST_5": 15,
+        "KEY_FCAST_6": 16,
+        "KEY_FCAST_7": 17,
+        "KEY_FCAST_8": 18,
+        "KEY_FCAST_9": 19,
+        "KEY_MOON": 2,
+        "KEY_SUN": 1,
+        "KEY_WX_TMSTAMP": 0
     },
     "capabilities": [
         "location",
@@ -17,6 +25,12 @@
     "projectType": "native",
     "resources": {
         "media": [
+            {
+                "characterRegex": "[0-9: ]",
+                "file": "fonts/leco.otf",
+                "name": "FONT_LECO_50",
+                "type": "font"
+            },
             {
                 "file": "fonts/DejaVuSans.ttf",
                 "name": "FONT_DEJAVU_SANS_9",
